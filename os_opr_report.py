@@ -112,7 +112,7 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-def mail_results(subject, body):
+def mail_results(subject, body, attachment=None):
     mFrom = os.getenv('MAIL_FROM')
     mTo = os.getenv('MAIL_TO')
     m = Email(os.getenv('MAIL_SERVER'))
@@ -124,10 +124,12 @@ def mail_results(subject, body):
     m.setSubject(subject)
     m.setTextBody("You should not see this text in a MIME aware reader")
     m.setHtmlBody(body)
+    if (attachment):
+        m.addAttachment(attachment)
     m.send()
 
 
-def fetch_oprs():
+def fetch_oprs(report_start):
     # connect to mysql on the server
     silent = dbg < 1
     forwarder = bgtunnel.open(
@@ -155,9 +157,9 @@ def fetch_oprs():
                   agency, first_name,last_name, phone_home, email,
                   mailing_address, mailing_city, mailing_state, mailing_zip
             FROM  wp_nrb_opr
-           WHERE  submitted > '2020-12-01'
+            WHERE  submitted > '{:%Y-%m-%d}'
         ORDER BY  submitted DESC
-    """
+    """.format(report_start)
 
     total = cursor.execute(sql) # not used
     oprs = cursor.fetchall()
@@ -198,11 +200,16 @@ def main(debug, verbose):
     xlsfile = resource_path(os.getenv('XLSFILE'))
 
     report_date = datetime.now()
-    report_start = datetime.now() - timedelta(days=14)
+    report_start = datetime.now() - timedelta(days=int(os.getenv('INTERVAL')))
 
     try:
-        oprs = fetch_oprs()
+        oprs = fetch_oprs(report_start)
         filename = write_sheet(oprs, xlsfile)
+        mail_results(
+            filename[:-5],
+            '<p>Here is the ' + os.getenv('INTERVAL_TITLE') + ' OS OPR Sales Report.</p>',
+            attachment = filename
+        )
         os.remove(resource_path(filename))
     except Exception as e:
         mail_results(
