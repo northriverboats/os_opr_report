@@ -115,11 +115,13 @@ def resource_path(relative_path):
 def mail_results(subject, body, attachment=None):
     mFrom = os.getenv('MAIL_FROM')
     mTo = os.getenv('MAIL_TO')
+    mCc = os.getenv('MAIL_CC')
     m = Email(os.getenv('MAIL_SERVER'))
     m.setFrom(mFrom)
     for email in mTo.split(','):
-      m.addRecipient(email)
-    # m.addCC(os.getenv('MAIL_FROM'))
+        m.addRecipient(email)
+    for email in mCc.split(','):
+        m.addCC(email)
 
     m.setSubject(subject)
     m.setTextBody("You should not see this text in a MIME aware reader")
@@ -181,9 +183,10 @@ def write_sheet(oprs, xlsfile):
             _ = ws.cell(row=row, column=column, value=opr[field])
     title = datetime.now().strftime("%b %-d, %Y")
     filename = datetime.now().strftime("OPR Sales %Y-%m-%d.xlsx")
+    longfilename = resource_path(filename)
     ws.title = title
-    wb.save(filename = resource_path(filename))
-    return filename
+    wb.save(filename = longfilename)
+    return filename, longfilename
 
 
 
@@ -198,19 +201,20 @@ def main(debug, verbose):
     # load environmental variables
     load_dotenv(resource_path(".env-local"))
     xlsfile = resource_path(os.getenv('XLSFILE'))
+    print(xlsfile)
 
     report_date = datetime.now()
     report_start = datetime.now() - timedelta(days=int(os.getenv('INTERVAL')))
 
     try:
         oprs = fetch_oprs(report_start)
-        filename = write_sheet(oprs, xlsfile)
+        filename, longfilename = write_sheet(oprs, xlsfile)
         mail_results(
             filename[:-5],
             '<p>Here is the ' + os.getenv('INTERVAL_TITLE') + ' OS OPR Sales Report.</p>',
-            attachment = filename
+            attachment = longfilename
         )
-        os.remove(resource_path(filename))
+        os.remove(longfilename)
     except Exception as e:
         mail_results(
             'OS OPR Sales Processing Error',
