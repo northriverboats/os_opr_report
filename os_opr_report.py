@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-import pprint
-import xlwt
-import bgtunnel
-import MySQLdb
-import MySQLdb.cursors
 import re
 import sys
 import os
+import xlwt
 import click
 from openpyxl import Workbook, load_workbook
 from datetime import datetime, timedelta
 from hashlib import md5
 from titlecase import titlecase
-from emailer import *
+from emailer.emailer import Email
+from mysql_tunnel.mysql_tunnel import TunnelSQL
 from dotenv import load_dotenv
 
 fields = [
@@ -132,43 +129,19 @@ def mail_results(subject, body, attachment=None):
 
 
 def fetch_oprs(report_start):
-    # connect to mysql on the server
     silent = dbg < 1
-    forwarder = bgtunnel.open(
-        ssh_user=os.getenv('SSH_USER'),
-        ssh_address=os.getenv('SSH_HOST'),
-        ssh_port=os.getenv('SSH_PORT'),
-        host_port=3306,
-        bind_port=3308,
-        silent=silent
-    )
-    conn= MySQLdb.connect(
-        host='127.0.0.1',
-        port=3308,
-        user=os.getenv('DB_USER'),
-        passwd=os.getenv('DB_PASS'),
-        db=os.getenv('DB_NAME'),
-        cursorclass=MySQLdb.cursors.DictCursor
-    )
+    with TunnelSQL(silent=silent, cursor='DictCursor') as db:
+        # select all records from the OPR table
+        sql = """
+              SELECT  submitted, model, dealership, hull_serial_number, date_delivered,
+                      agency, first_name,last_name, phone_home, email,
+                      mailing_address, mailing_city, mailing_state, mailing_zip
+                FROM  wp_nrb_opr
+                WHERE  submitted > %s
+            ORDER BY  submitted DESC
+        """
 
-    cursor = conn.cursor()
-
-    # select all records from the OPR table
-    sql = """
-          SELECT  submitted, model, dealership, hull_serial_number, date_delivered,
-                  agency, first_name,last_name, phone_home, email,
-                  mailing_address, mailing_city, mailing_state, mailing_zip
-            FROM  wp_nrb_opr
-            WHERE  submitted > '{:%Y-%m-%d}'
-        ORDER BY  submitted DESC
-    """.format(report_start)
-
-    total = cursor.execute(sql) # not used
-    oprs = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
-    forwarder.close()
+        oprs = db.execute(sql, (report_start, ))
 
     return oprs
 
@@ -199,7 +172,7 @@ def main(debug, verbose):
         dbg = verbose
 
     # load environmental variables
-    load_dotenv(resource_path(".env-local"))
+    load_dotenv(resource_path(".env"))
     xlsfile = resource_path(os.getenv('XLSFILE'))
     print(xlsfile)
 
