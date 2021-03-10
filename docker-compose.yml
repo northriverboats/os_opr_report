@@ -1,0 +1,8 @@
+version: "2"
+
+services:
+  python-app:
+    image: nrb-python
+    volumes:
+      - ./:/app
+    entrypoint: [python, check_for_hulls.py]
