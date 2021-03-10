@@ -5,4 +5,4 @@ services:
     image: nrb-python
     volumes:
       - ./:/app
-    entrypoint: [python, check_for_hulls.py]
+    entrypoint: [python, os_opr_report.py]
