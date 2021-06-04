@@ -4,5 +4,5 @@ services:
   python-app:
     image: nrb-python
     volumes:
-      - ./:/app
+      - ./:/app  # no need for rec drive access
     entrypoint: [python, os_opr_report.py]
