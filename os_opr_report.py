@@ -11,6 +11,7 @@ from titlecase import titlecase
 from emailer.emailer import Email
 from mysql_tunnel.mysql_tunnel import TunnelSQL
 from dotenv import load_dotenv
+from pprint import pprint
 
 fields = [
     'submitted',
@@ -109,6 +110,23 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def resolve_flag(env_var, default):
+    """convert enviromntal variable to True False
+       return default value if no string"""
+    if os.getenv(env_var):
+        return [False, True][os.getenv(env_var) != ""]
+    return default
+
+def resolve_text(env_var, default):
+    """convert enviromntal variable to text string
+       return default value if no string"""
+    if os.getenv(env_var):
+        return os.getenv(env_var)
+    return default
+
+def resolve_int(env_var, default):
+    return int(resolve_text(env_var, default))
+
 def mail_results(subject, body, attachment=None):
     mFrom = os.getenv('MAIL_FROM')
     mTo = os.getenv('MAIL_TO')
@@ -166,18 +184,44 @@ def write_sheet(oprs, xlsfile):
 @click.command()
 @click.option('--debug', '-d', is_flag=True, help='show debug output')
 @click.option('--verbose', '-v', default=1, type=int, help='verbosity level 0-3')
-def main(debug, verbose):
+@click.option('--interval', type=int, help='how may days does report cover')
+@click.option('--date', default='', type=str, help='date in yyyy-mm-dd format')
+@click.option('--dump', is_flag=True, help='dump to screen do not email')
+def main(debug, verbose, interval, date, dump):
     global dbg
-    if debug:
-        dbg = verbose
 
     # load environmental variables
     load_dotenv(resource_path(".env"))
+
+    if os.getenv('HELP'):
+      with click.get_current_context() as ctx:
+        click.echo(ctx.get_help())
+        ctx.exit()
+
+    debug = resolve_flag('DEBUG', debug)
+    verbosity = resolve_int('VERBOSE', verbose)
+    interval = resolve_int('INTERVAL', interval)
+    date = resolve_text('DATE', date)
+    dump = resolve_flag('DUMP', dump)
+
+    if debug:
+        dbg = verbose
+
+    if date:
+        date = datetime.strptime(date, '%Y-%m-%d')
+    else:
+        date = datetime.now()
+
     xlsfile = resource_path(os.getenv('XLSFILE'))
     print(xlsfile)
 
-    report_date = datetime.now()
-    report_start = datetime.now() - timedelta(days=int(os.getenv('INTERVAL')))
+    report_date =  date
+    report_start = date - timedelta(days=int(interval))
+
+    pprint(locals())
+    sys.exit(0)
+
+
 
     try:
         oprs = fetch_oprs(report_start)

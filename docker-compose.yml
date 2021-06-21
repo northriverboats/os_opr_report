@@ -3,6 +3,13 @@ version: "2"
 services:
   python-app:
     image: nrb-python
+    environment:
+      - HELP=${HELP}          # flag   print help
+      - VERBOSE=${VERBOSE}    # int    set verbosity level
+      - INTERVAL=${INTERVAL}  # int    how may days back to start date
+      - DATE=${DATE}          # string yyyy-mm-dd
+      - DUMP=${DUMP}          # flag   send to screen do not email 
+      - DEBUG=${DEBUG}        # flag   debug output
     volumes:
       - ./:/app  # no need for rec drive access
     entrypoint: [python, os_opr_report.py]
