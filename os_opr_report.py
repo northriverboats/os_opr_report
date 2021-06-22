@@ -179,6 +179,39 @@ def write_sheet(oprs, xlsfile):
     wb.save(filename = longfilename)
     return filename, longfilename
 
+def opr_to_customer(opr):
+    """create customre string from opr"""
+    customer = ""
+    if opr['agency']:
+        customer += opr['agency'] + ', '
+    customer += opr['first_name'] + ' ' + opr['last_name']
+    return customer
+
+def dump_opr(opr):
+    print("{:10.10}  {:16.16}   {:20.20}  {:14.14}  {:10.10}  {:40.40}  "
+          "{:14.14}  {:40.40}".format(
+            opr['submitted'].strftime('%Y-%m-%d'),
+            opr['dealership'],
+            opr['model'],
+            opr['hull_serial_number'],
+            opr['date_delivered'].strftime('%Y-%m-%d'),
+            opr_to_customer(opr),
+            opr['phone_home'],
+            opr['email'],
+        ))
+
+def dump_oprs(oprs):
+    print ("----------  -----------------  --------------------  --------------  "
+           "----------  ----------------------------------------  --------------  "
+           "----------------------------------------")
+    print("Submitted   Dealership         Model                 Serial "
+          "Number   Delivered   Customer                                  "
+          "Phone           Email")
+    print ("----------  -----------------  --------------------  --------------  "
+           "----------  ----------------------------------------  --------------  "
+           "----------------------------------------")
+    for opr in oprs:
+        dump_opr(opr)
 
 
 @click.command()
@@ -213,25 +246,25 @@ def main(debug, verbose, interval, date, dump):
         date = datetime.now()
 
     xlsfile = resource_path(os.getenv('XLSFILE'))
-    print(xlsfile)
 
     report_date =  date
     report_start = date - timedelta(days=int(interval))
 
-    pprint(locals())
-    sys.exit(0)
-
-
-
     try:
         oprs = fetch_oprs(report_start)
-        filename, longfilename = write_sheet(oprs, xlsfile)
-        mail_results(
-            filename[:-5],
-            '<p>Here is the ' + os.getenv('INTERVAL_TITLE') + ' OS OPR Sales Report.</p>',
-            attachment = longfilename
-        )
-        os.remove(longfilename)
+        if dump:
+            dump_oprs(oprs)
+            print()
+        else:
+            filename, longfilename = write_sheet(oprs, xlsfile)
+            mail_results(
+                filename[:-5],
+                '<p>Here is the ' + os.getenv('INTERVAL_TITLE') + ' OS OPR Sales Report.</p>',
+                attachment = longfilename
+            )
+            os.remove(longfilename)
+
+
     except Exception as e:
         mail_results(
             'OS OPR Sales Processing Error',
