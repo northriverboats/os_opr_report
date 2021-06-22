@@ -219,8 +219,9 @@ def dump_oprs(oprs):
 @click.option('--verbose', '-v', default=1, type=int, help='verbosity level 0-3')
 @click.option('--interval', type=int, help='how may days does report cover')
 @click.option('--date', default='', type=str, help='date in yyyy-mm-dd format')
+@click.option('--title', default='', type=str, help='Title of report for emailing')
 @click.option('--dump', is_flag=True, help='dump to screen do not email')
-def main(debug, verbose, interval, date, dump):
+def main(debug, verbose, interval, date, title, dump):
     global dbg
 
     # load environmental variables
@@ -235,6 +236,7 @@ def main(debug, verbose, interval, date, dump):
     verbosity = resolve_int('VERBOSE', verbose)
     interval = resolve_int('INTERVAL', interval)
     date = resolve_text('DATE', date)
+    title = resolve_text('DATE', title)
     dump = resolve_flag('DUMP', dump)
 
     if debug:
@@ -244,6 +246,9 @@ def main(debug, verbose, interval, date, dump):
         date = datetime.strptime(date, '%Y-%m-%d')
     else:
         date = datetime.now()
+
+    if not title:
+        title = os.getenv('INTERVAL_TITLE')
 
     xlsfile = resource_path(os.getenv('XLSFILE'))
 
@@ -259,7 +264,7 @@ def main(debug, verbose, interval, date, dump):
             filename, longfilename = write_sheet(oprs, xlsfile, report_date)
             mail_results(
                 filename[:-5],
-                '<p>Here is the ' + os.getenv('INTERVAL_TITLE') + ' OS OPR Sales Report.</p>',
+                '<p>Here is the ' + title + ' OS OPR Sales Report.</p>',
                 attachment = longfilename
             )
             os.remove(longfilename)
@@ -270,6 +275,8 @@ def main(debug, verbose, interval, date, dump):
             'OS OPR Sales Processing Error',
             '<p>Spreadsheet can not be updated due to script error:<br />\n' + str(e) + '</p>'
         )
+
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
