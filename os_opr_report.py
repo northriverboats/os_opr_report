@@ -146,7 +146,7 @@ def mail_results(subject, body, attachment=None):
     m.send()
 
 
-def fetch_oprs(report_start):
+def fetch_oprs(report_start, report_date):
     silent = dbg < 1
     with TunnelSQL(silent=silent, cursor='DictCursor') as db:
         # select all records from the OPR table
@@ -155,25 +155,25 @@ def fetch_oprs(report_start):
                       agency, first_name,last_name, phone_home, email,
                       mailing_address, mailing_city, mailing_state, mailing_zip
                 FROM  wp_nrb_opr
-                WHERE  submitted > %s
+                WHERE  submitted BETWEEN %s and %s
             ORDER BY  submitted DESC
         """
 
-        oprs = db.execute(sql, (report_start, ))
+        oprs = db.execute(sql, (report_start, report_date))
 
     return oprs
 
 
 
-def write_sheet(oprs, xlsfile):
+def write_sheet(oprs, xlsfile, report_date):
     wb = load_workbook(filename = xlsfile)
     ws = wb.active
     for row, opr in enumerate(oprs, start=2):
         opr['submitted'] = opr['submitted'].date()
         for column, field in enumerate(fields, start=1):
             _ = ws.cell(row=row, column=column, value=opr[field])
-    title = datetime.now().strftime("%b %-d, %Y")
-    filename = datetime.now().strftime("OPR Sales %Y-%m-%d.xlsx")
+    title = report_date.strftime("%b %-d, %Y")
+    filename = report_date.strftime("OPR Sales %Y-%m-%d.xlsx")
     longfilename = resource_path(filename)
     ws.title = title
     wb.save(filename = longfilename)
@@ -251,12 +251,12 @@ def main(debug, verbose, interval, date, dump):
     report_start = date - timedelta(days=int(interval))
 
     try:
-        oprs = fetch_oprs(report_start)
+        oprs = fetch_oprs(report_start, report_date)
         if dump:
             dump_oprs(oprs)
             print()
         else:
-            filename, longfilename = write_sheet(oprs, xlsfile)
+            filename, longfilename = write_sheet(oprs, xlsfile, report_date)
             mail_results(
                 filename[:-5],
                 '<p>Here is the ' + os.getenv('INTERVAL_TITLE') + ' OS OPR Sales Report.</p>',
